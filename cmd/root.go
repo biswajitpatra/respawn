@@ -38,7 +38,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.AddCommand(addCmd, lsCmd, snapshotCmd, restoreCmd, restartCmd, rmCmd, attachCmd, toolsCmd, installBootCmd, uninstallBootCmd)
+	rootCmd.AddCommand(addCmd, lsCmd, snapshotCmd, restoreCmd, restartCmd, stopCmd, rmCmd, attachCmd, toolsCmd, installBootCmd, uninstallBootCmd)
 }
 
 // --- shared rendering ---------------------------------------------------------
@@ -179,7 +179,7 @@ var addCmd = &cobra.Command{
 			return fmt.Errorf("job %q already exists (use `respawn restart %s`)", name, name)
 		}
 
-		workDir, _ := filepath.Abs(expandUser(addDir))
+		workDir := resolveDir(addDir)
 		userArgs := parseKV(addArgs)
 		userEnv := parseKV(addEnv)
 
@@ -373,6 +373,36 @@ var restartCmd = &cobra.Command{
 	},
 }
 
+var stopCmd = &cobra.Command{
+	Use:   "stop NAME",
+	Short: "Stop a running job (kill its window) but keep it registered",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name := args[0]
+		jobs, err := state.Load()
+		if err != nil {
+			return err
+		}
+		job, ok := jobs[name]
+		if !ok {
+			return fmt.Errorf("no job %q", name)
+		}
+		// Capture the latest session id before killing so a later restart/
+		// restore can resume where it left off.
+		if spec, err := config.Get(job.Tool); err == nil {
+			snapshotJob(&job, spec)
+			jobs[name] = job
+			_ = state.Save(jobs)
+		}
+		if tmux.KillWindow(name) {
+			fmt.Printf("stopped %s (still registered — `respawn restart %s` to resume)\n", name, name)
+		} else {
+			fmt.Printf("%s was not running\n", name)
+		}
+		return nil
+	},
+}
+
 var rmKill bool
 
 var rmCmd = &cobra.Command{
@@ -485,7 +515,7 @@ var uninstallBootCmd = &cobra.Command{
 
 func init() {
 	addCmd.Flags().StringVarP(&addTool, "tool", "t", "", "Registry tool key (claude, codex, devserver, ...)")
-	addCmd.Flags().StringVarP(&addDir, "dir", "d", ".", "Working directory")
+	addCmd.Flags().StringVarP(&addDir, "dir", "d", "", "Working directory (default: current git repo root, else cwd)")
 	addCmd.Flags().StringArrayVarP(&addArgs, "arg", "a", nil, "Named template value k=v, fills {k} (repeatable)")
 	addCmd.Flags().StringArrayVarP(&addEnv, "env", "e", nil, "Env var K=V to inject (repeatable)")
 	addCmd.Flags().BoolVar(&addNoLaunch, "no-launch", false, "Register without starting it now")
@@ -499,4 +529,18 @@ func expandUser(p string) string {
 		return filepath.Join(home, p[1:])
 	}
 	return p
+}
+
+// resolveDir turns the --dir flag into an absolute working directory. When not
+// given, it defaults to the current git repo root, falling back to the cwd.
+func resolveDir(given string) string {
+	if given != "" {
+		abs, _ := filepath.Abs(expandUser(given))
+		return abs
+	}
+	if root, ok := gitRepoRoot(); ok {
+		return root
+	}
+	cwd, _ := os.Getwd()
+	return cwd
 }
