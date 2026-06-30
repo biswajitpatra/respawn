@@ -8,8 +8,11 @@
 # Template placeholders:
 #   {name} {dir} {session_id} {flags}  — built-ins
 #   {anything-else}                    — named values you pass with `-a key=val`
-#   env vars (see `env`) are captured and prepended automatically as KEY=value;
 #   {flags} is the verbatim tail after `--` on the `add` command line.
+#
+# env: declared vars are prepended to the command as KEY=value. Two forms:
+#   env = ["FOO"]            capture FOO from the current environment at `add`
+#   env = { FOO = "{name}" } set FOO to a rendered template (built-ins + args)
 #
 # capture kinds:
 #   newest_file  base + project-transform(dir) + glob -> newest file; id = stem
@@ -24,7 +27,6 @@ start           = "claude {flags}"
 resume          = "claude {flags} --resume {session_id}"
 resume_fallback = "claude {flags} --continue"
 capture         = { kind = "newest_file", base = "~/.claude/projects", project = "claude", glob = "*.jsonl" }
-env             = ["AGENTBUS_NAME"]
 
 [tools.codex]
 detect  = "codex"
@@ -54,7 +56,7 @@ capture = { kind = "arg", pattern = "(?:-s|--session)\\s+(\\S+)" }
 # detect  = "node"
 # start   = "npm run dev -- --port {port}"
 # capture = { kind = "none" }
-# env     = ["NODE_ENV"]
+# env     = { NODE_ENV = "development" }   # or ["NODE_ENV"] to capture from the shell
 #
 # A training run resumes from its latest checkpoint:
 # [tools.trainer]

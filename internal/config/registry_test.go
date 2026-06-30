@@ -54,3 +54,32 @@ start = "mybin run"
 		t.Fatal("user-defined tool not added")
 	}
 }
+
+func TestEnvSpecForms(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	dir := filepath.Join(cfg, "respawn")
+	os.MkdirAll(dir, 0o755)
+	override := `[tools.listenv]
+detect = "x"
+env = ["FOO"]
+[tools.mapenv]
+detect = "y"
+env = { BAR = "{name}" }
+`
+	if err := os.WriteFile(filepath.Join(dir, "tools.toml"), []byte(override), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// list form -> capture from environment (empty template)
+	if v, ok := reg["listenv"].Env["FOO"]; !ok || v != "" {
+		t.Fatalf("list form: FOO should map to empty template, got %q ok=%v", v, ok)
+	}
+	// table form -> value template preserved
+	if v := reg["mapenv"].Env["BAR"]; v != "{name}" {
+		t.Fatalf("table form: BAR should be %q, got %q", "{name}", v)
+	}
+}

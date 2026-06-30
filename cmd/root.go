@@ -216,24 +216,31 @@ var addCmd = &cobra.Command{
 		userArgs := parseKV(addArgs)
 		userEnv := parseKV(addEnv)
 
+		job := state.Job{Name: name, Tool: addTool, Dir: workDir, Flags: flags, Args: userArgs}
+
+		// Resolve env: an empty template captures the var from the current
+		// environment; a non-empty template renders against the job ({name},
+		// {dir}, named args, ...).
 		resolvedEnv := map[string]string{}
-		for _, v := range spec.Env {
-			val := userEnv[v]
-			if val == "" {
-				val = os.Getenv(v)
-			}
-			if v == "AGENTBUS_NAME" && val == "" {
-				val = name // sensible default for agentbus-aware tools: identity = job name
+		for key, tmpl := range spec.Env {
+			var val string
+			if tmpl == "" {
+				val = os.Getenv(key)
+			} else {
+				rendered, err := render(tmpl, job)
+				if err != nil {
+					return err
+				}
+				val = rendered
 			}
 			if val != "" {
-				resolvedEnv[v] = val
+				resolvedEnv[key] = val
 			}
 		}
 		for k, v := range userEnv { // explicit --env always wins
 			resolvedEnv[k] = v
 		}
-
-		job := state.Job{Name: name, Tool: addTool, Dir: workDir, Flags: flags, Env: resolvedEnv, Args: userArgs}
+		job.Env = resolvedEnv
 
 		// Render (and validate) the start command BEFORE persisting, so a bad
 		// template doesn't leak a half-registered job into state.

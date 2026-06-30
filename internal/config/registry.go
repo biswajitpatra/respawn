@@ -26,14 +26,42 @@ type Capture struct {
 	Pattern string `toml:"pattern"`
 }
 
+// EnvSpec maps an env var name to a value template. Two TOML forms decode into
+// it: a list (`env = ["FOO"]`) means "capture FOO from the current environment"
+// (empty template), and a table (`env = { FOO = "{name}" }`) sets FOO to the
+// rendered template. Both stay tool-agnostic — the registry never hardcodes a
+// specific variable.
+type EnvSpec map[string]string
+
+// UnmarshalTOML accepts either the list or the table form.
+func (e *EnvSpec) UnmarshalTOML(v interface{}) error {
+	out := EnvSpec{}
+	switch x := v.(type) {
+	case []interface{}:
+		for _, item := range x {
+			if s, ok := item.(string); ok {
+				out[s] = "" // capture from environment
+			}
+		}
+	case map[string]interface{}:
+		for k, val := range x {
+			if s, ok := val.(string); ok {
+				out[k] = s
+			}
+		}
+	}
+	*e = out
+	return nil
+}
+
 // ToolSpec is one registry entry.
 type ToolSpec struct {
-	Detect         string   `toml:"detect"`
-	Start          string   `toml:"start"`
-	Resume         string   `toml:"resume"`
-	ResumeFallback string   `toml:"resume_fallback"`
-	Capture        Capture  `toml:"capture"`
-	Env            []string `toml:"env"`
+	Detect         string  `toml:"detect"`
+	Start          string  `toml:"start"`
+	Resume         string  `toml:"resume"`
+	ResumeFallback string  `toml:"resume_fallback"`
+	Capture        Capture `toml:"capture"`
+	Env            EnvSpec `toml:"env"`
 }
 
 type file struct {
