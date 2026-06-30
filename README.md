@@ -177,9 +177,27 @@ systemctl --user enable respawn.service
 
 `respawn` is the **persistence/lifecycle** layer;
 [agentbus](https://github.com/biswajitpatra/agentbus) is the **messaging**
-layer. They compose: register a Claude job with `AGENTBUS_NAME` in its `env`
-(it defaults to the job name), and on reboot `respawn` relaunches it with that
-name so it re-joins the bus automatically. Neither depends on the other.
+layer. They compose, but respawn stays tool-agnostic — it ships **no** agentbus
+defaults. To wire a Claude job into the bus, add a tool to your
+`~/.config/respawn/tools.toml`:
+
+```toml
+[tools.claude-bus]
+detect          = "claude"
+start           = "claude {flags} --dangerously-load-development-channels server:agentbus-channel"
+resume          = "claude {flags} --resume {session_id} --dangerously-load-development-channels server:agentbus-channel"
+resume_fallback = "claude {flags} --continue --dangerously-load-development-channels server:agentbus-channel"
+capture         = { kind = "newest_file", base = "~/.claude/projects", project = "claude", glob = "*.jsonl" }
+env             = ["AGENTBUS_NAME"]   # defaults to the job name
+```
+
+Then `respawn add frontend -t claude-bus -d ~/work/app`. The `AGENTBUS_NAME`
+env makes it **registered + addressable for sending**; the
+`--dangerously-load-development-channels` flag enables **real-time receiving**
+via agentbus's `claude-channel` delivery (run `agentbus enable claude-channel`
+once). On reboot, `respawn restore` replays the resume command *with the flag*,
+so the resurrected session rejoins the bus automatically. Neither tool depends
+on the other.
 
 ## Development
 
