@@ -1,0 +1,64 @@
+# respawn — default tool registry.
+#
+# Every entry teaches respawn how to (a) recognize a tool in the process tree,
+# (b) capture its resumable session id, and (c) build the START and RESUME
+# commands. Override or add tools in ~/.config/respawn/tools.toml — your file is
+# merged over these defaults (per-tool, field by field).
+#
+# Template placeholders:
+#   {name} {dir} {session_id} {flags}  — built-ins
+#   {anything-else}                    — named values you pass with `-a key=val`
+#   env vars (see `env`) are captured and prepended automatically as KEY=value;
+#   {flags} is the verbatim tail after `--` on the `add` command line.
+#
+# capture kinds:
+#   newest_file  base + project-transform(dir) + glob -> newest file; id = stem
+#   arg          regex over the tool's command line; id = capture group 1
+#   none         no id; RESUME falls back to START
+#
+# project transforms (for newest_file): "claude" | "basename" | "none"
+
+[tools.claude]
+detect          = "claude"
+start           = "claude {flags}"
+resume          = "claude {flags} --resume {session_id}"
+resume_fallback = "claude {flags} --continue"
+capture         = { kind = "newest_file", base = "~/.claude/projects", project = "claude", glob = "*.jsonl" }
+env             = ["AGENTBUS_NAME"]
+
+[tools.codex]
+detect  = "codex"
+start   = "codex {flags}"
+resume  = "codex {flags} resume {session_id}"
+capture = { kind = "arg", pattern = "resume\\s+(\\S+)" }
+
+[tools.gemini]
+# NOTE: gemini's resume flag is a best-effort guess — verify against your CLI
+# version and override here if wrong.
+detect  = "gemini"
+start   = "gemini {flags}"
+resume  = "gemini {flags} --session {session_id}"
+capture = { kind = "arg", pattern = "--session\\s+(\\S+)" }
+
+[tools.opencode]
+detect  = "opencode"
+start   = "opencode {flags}"
+resume  = "opencode {flags} -s {session_id}"
+capture = { kind = "arg", pattern = "(?:-s|--session)\\s+(\\S+)" }
+
+# --- generic example: any long-running, interactive system -------------------
+# A dev server has no "resume" — it just starts fresh on resurrection. Capture
+# "none" makes RESUME == START. Named {placeholders} are filled with `-a k=v`.
+#
+# [tools.devserver]
+# detect  = "node"
+# start   = "npm run dev -- --port {port}"
+# capture = { kind = "none" }
+# env     = ["NODE_ENV"]
+#
+# A training run resumes from its latest checkpoint:
+# [tools.trainer]
+# detect  = "python"
+# start   = "python train.py --lr {lr} {flags}"
+# resume  = "python train.py --lr {lr} --resume-from-checkpoint {session_id} {flags}"
+# capture = { kind = "newest_file", base = "./checkpoints", project = "none", glob = "*.ckpt" }

@@ -1,0 +1,15 @@
+# Binaries
+/respawn
+*.exe
+*.test
+*.out
+
+# Go
+/dist/
+/vendor/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

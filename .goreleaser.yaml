@@ -1,0 +1,46 @@
+# goreleaser config — https://goreleaser.com
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: respawn
+    main: .
+    binary: respawn
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: Fixes
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
