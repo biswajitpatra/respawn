@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -125,6 +126,31 @@ func envPrefix(job state.Job) string {
 	return strings.Join(parts, " ")
 }
 
+// newUUID returns a random RFC-4122 v4 UUID (no external dependency).
+func newUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// assignSessionID generates a session id to pin at launch for tools whose
+// capture kind is "assign" (e.g. `claude --session-id <uuid>`). This makes each
+// job's id deterministic and unique — the only reliable way to run several of
+// the same tool in one directory. Returns "" for non-assign tools.
+func assignSessionID(spec config.ToolSpec) string {
+	if spec.Capture.Kind != "assign" {
+		return ""
+	}
+	switch spec.Capture.Format {
+	case "", "uuid":
+		return newUUID()
+	default:
+		return newUUID()
+	}
+}
+
 func buildCommand(job state.Job, spec config.ToolSpec, resume bool) (string, error) {
 	var tmpl string
 	switch {
@@ -241,6 +267,11 @@ var addCmd = &cobra.Command{
 			resolvedEnv[k] = v
 		}
 		job.Env = resolvedEnv
+
+		// Pin a session id at launch for tools that assign one (e.g. claude
+		// --session-id), so multiple jobs of the same tool in one directory each
+		// get a unique, deterministic id instead of racing over a shared folder.
+		job.SessionID = assignSessionID(spec)
 
 		// Render (and validate) the start command BEFORE persisting, so a bad
 		// template doesn't leak a half-registered job into state.

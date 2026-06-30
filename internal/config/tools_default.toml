@@ -15,18 +15,21 @@
 #   env = { FOO = "{name}" } set FOO to a rendered template (built-ins + args)
 #
 # capture kinds:
+#   assign       generate the id at launch and pass it in (e.g. --session-id);
+#                deterministic + unique, so many jobs can share one directory
 #   newest_file  base + project-transform(dir) + glob -> newest file; id = stem
 #   arg          regex over the tool's command line; id = capture group 1
 #   none         no id; RESUME falls back to START
 #
 # project transforms (for newest_file): "claude" | "basename" | "none"
 
+# claude pins its own session id at launch (--session-id), so several claude
+# jobs can run in ONE directory without their transcripts being confused.
 [tools.claude]
-detect          = "claude"
-start           = "claude {flags}"
-resume          = "claude {flags} --resume {session_id}"
-resume_fallback = "claude {flags} --continue"
-capture         = { kind = "newest_file", base = "~/.claude/projects", project = "claude", glob = "*.jsonl" }
+detect  = "claude"
+start   = "claude --session-id {session_id} {flags}"
+resume  = "claude {flags} --resume {session_id}"
+capture = { kind = "assign", format = "uuid" }
 
 [tools.codex]
 detect  = "codex"

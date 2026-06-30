@@ -20,8 +20,8 @@ func TestLoadDefaults(t *testing.T) {
 	if claude.Detect != "claude" {
 		t.Fatalf("claude.Detect = %q", claude.Detect)
 	}
-	if claude.Capture.Kind != "newest_file" {
-		t.Fatalf("claude.Capture.Kind = %q, want newest_file", claude.Capture.Kind)
+	if claude.Capture.Kind != "assign" {
+		t.Fatalf("claude.Capture.Kind = %q, want assign", claude.Capture.Kind)
 	}
 }
 

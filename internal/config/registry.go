@@ -17,13 +17,14 @@ import (
 //go:embed tools_default.toml
 var defaultsTOML string
 
-// Capture describes how to recover a tool's resumable session id.
+// Capture describes how to recover (or assign) a tool's resumable session id.
 type Capture struct {
 	Kind    string `toml:"kind"`
 	Base    string `toml:"base"`
 	Project string `toml:"project"`
 	Glob    string `toml:"glob"`
 	Pattern string `toml:"pattern"`
+	Format  string `toml:"format"` // for kind="assign": id format to generate (default "uuid")
 }
 
 // EnvSpec maps an env var name to a value template. Two TOML forms decode into

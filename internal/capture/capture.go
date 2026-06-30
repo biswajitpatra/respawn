@@ -93,6 +93,10 @@ func argID(c config.Capture, cmdline string) string {
 }
 
 // SessionID returns the captured id, or "" if none could be found.
+//
+// kind="assign" returns "" here on purpose: that id is generated and pinned at
+// `add` time (see cmd.assignSessionID), so snapshot must not try to re-derive
+// or overwrite it.
 func SessionID(c config.Capture, workDir, cmdline string) string {
 	switch c.Kind {
 	case "newest_file":

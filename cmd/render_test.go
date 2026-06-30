@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/biswajitpatra/respawn/internal/config"
@@ -50,6 +51,22 @@ func TestBuildCommandResumeFallback(t *testing.T) {
 	got, _ = buildCommand(state.Job{Name: "a", SessionID: "id1"}, spec, true)
 	if got != "claude --resume id1" {
 		t.Fatalf("resume = %q", got)
+	}
+}
+
+var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+
+func TestAssignSessionID(t *testing.T) {
+	if got := assignSessionID(config.ToolSpec{Capture: config.Capture{Kind: "newest_file"}}); got != "" {
+		t.Fatalf("non-assign tool should not pin an id, got %q", got)
+	}
+	a := assignSessionID(config.ToolSpec{Capture: config.Capture{Kind: "assign"}})
+	b := assignSessionID(config.ToolSpec{Capture: config.Capture{Kind: "assign"}})
+	if !uuidRe.MatchString(a) {
+		t.Fatalf("assign should yield a v4 uuid, got %q", a)
+	}
+	if a == b {
+		t.Fatal("two assigned ids must be unique")
 	}
 }
 

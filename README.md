@@ -140,8 +140,10 @@ capture = { kind = "newest_file", base = "./checkpoints", project = "none", glob
 env     = ["CUDA_VISIBLE_DEVICES"]
 ```
 
-Capture kinds: `newest_file` (newest matching file's stem is the id — survives
-process exit), `arg` (regex over the command line), `none` (resume == start).
+Capture kinds: `assign` (respawn generates the id at launch and passes it in,
+e.g. `--session-id` — unique per job, so many can share a directory),
+`newest_file` (newest matching file's stem is the id — survives process exit),
+`arg` (regex over the command line), `none` (resume == start).
 
 ### Linux boot persistence
 
@@ -167,9 +169,11 @@ systemctl --user enable respawn.service
 - **State, not action.** Like the underlying CLIs' own resume, this restores the
   *context*, not an in-flight tool call. The job remembers; you re-prompt it to
   continue.
-- **One session per dir, by default.** `newest_file` capture picks the most
-  recent transcript in a directory; for two jobs of the same tool in one dir,
-  use `arg` capture or distinct rules.
+- **Many jobs per directory** are fine with `assign` capture (the default for
+  `claude`): respawn pins a unique id at launch (`--session-id`), so transcripts
+  never collide. Tools that instead use `newest_file` capture *do* assume one
+  session per dir — switch them to `assign` (if the CLI supports a settable id)
+  or `arg` capture for the multi-per-dir case.
 - **`gemini` / `codex` resume flags are best-effort defaults** — verify against
   your CLI version and override in your config.
 
