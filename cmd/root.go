@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"syscall"
@@ -30,11 +31,43 @@ var rootCmd = &cobra.Command{
 }
 
 // Execute runs the CLI.
-func Execute() {
+func Execute(version string) {
+	rootCmd.Version = resolveVersion(version)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// resolveVersion enriches a "dev" build with the embedded git revision so you
+// can tell whether an installed binary matches the latest source.
+func resolveVersion(v string) string {
+	if v != "" && v != "dev" {
+		return v
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "dev"
+	}
+	rev, dirty := "", ""
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			if len(s.Value) >= 7 {
+				rev = s.Value[:7]
+			} else {
+				rev = s.Value
+			}
+		case "vcs.modified":
+			if s.Value == "true" {
+				dirty = "-dirty"
+			}
+		}
+	}
+	if rev != "" {
+		return "dev+" + rev + dirty
+	}
+	return "dev"
 }
 
 func init() {
