@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -195,6 +196,24 @@ func status(job state.Job, spec config.ToolSpec) string {
 	return "idle"
 }
 
+// humanAge renders an epoch as a short relative age ("12s", "5m", "2h", "3d").
+func humanAge(epoch int64) string {
+	if epoch <= 0 {
+		return "-"
+	}
+	d := time.Since(time.Unix(epoch, 0))
+	switch {
+	case d < time.Minute:
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
+}
+
 func parseKV(items []string) map[string]string {
 	out := map[string]string{}
 	for _, it := range items {
@@ -272,6 +291,7 @@ var addCmd = &cobra.Command{
 		// --session-id), so multiple jobs of the same tool in one directory each
 		// get a unique, deterministic id instead of racing over a shared folder.
 		job.SessionID = assignSessionID(spec)
+		job.LastActive = time.Now().Unix()
 
 		// Render (and validate) the start command BEFORE persisting, so a bad
 		// template doesn't leak a half-registered job into state.
@@ -313,26 +333,43 @@ var lsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		names := make([]string, 0, len(jobs))
-		for n := range jobs {
-			names = append(names, n)
+		acts := tmux.WindowActivities()
+
+		type row struct {
+			j      state.Job
+			status string
+			active int64 // effective last-activity epoch (live if running, else stored)
 		}
-		sort.Strings(names)
-		w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tTOOL\tSTATUS\tSESSION\tDIR")
-		for _, n := range names {
-			j := jobs[n]
+		rows := make([]row, 0, len(jobs))
+		for _, j := range jobs {
 			st := "?"
 			if spec, ok := reg[j.Tool]; ok {
 				st = status(j, spec)
 			}
-			sid := j.SessionID
+			active := j.LastActive
+			if a, ok := acts[j.Name]; ok && a > active {
+				active = a
+			}
+			rows = append(rows, row{j: j, status: st, active: active})
+		}
+		// Most-recently-active first; stale/never-active (0) sink to the bottom.
+		sort.Slice(rows, func(a, b int) bool {
+			if rows[a].active != rows[b].active {
+				return rows[a].active > rows[b].active
+			}
+			return rows[a].j.Name < rows[b].j.Name
+		})
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+		fmt.Fprintln(w, "NAME\tTOOL\tSTATUS\tLAST\tSESSION\tDIR")
+		for _, r := range rows {
+			sid := r.j.SessionID
 			if sid == "" {
 				sid = "-"
 			} else if len(sid) > 12 {
 				sid = sid[:12]
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", j.Name, j.Tool, st, sid, j.Dir)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r.j.Name, r.j.Tool, r.status, humanAge(r.active), sid, r.j.Dir)
 		}
 		return w.Flush()
 	},
@@ -350,6 +387,7 @@ var snapshotCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		acts := tmux.WindowActivities()
 		n := 0
 		for name, j := range jobs {
 			spec, ok := reg[j.Tool]
@@ -358,6 +396,9 @@ var snapshotCmd = &cobra.Command{
 			}
 			if snapshotJob(&j, spec) != "" {
 				n++
+			}
+			if a := acts[j.Name]; a > j.LastActive {
+				j.LastActive = a // persist last activity so it survives going down
 			}
 			jobs[name] = j
 		}
@@ -427,6 +468,7 @@ var restartCmd = &cobra.Command{
 			return err
 		}
 		snapshotJob(&job, spec)
+		job.LastActive = time.Now().Unix()
 		jobs[name] = job
 		if err := state.Save(jobs); err != nil {
 			return err

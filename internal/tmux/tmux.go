@@ -86,6 +86,26 @@ func KillWindow(name string) bool {
 	return err == nil
 }
 
+// WindowActivities returns each window's last-activity epoch (seconds) — a
+// generic, tool-agnostic signal of when the job last produced output.
+func WindowActivities() map[string]int64 {
+	res := map[string]int64{}
+	out, err := run("list-windows", "-t", "="+Session(), "-F", "#{window_name}\t#{window_activity}")
+	if err != nil {
+		return res
+	}
+	for _, line := range strings.Split(out, "\n") {
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if v, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64); err == nil {
+			res[parts[0]] = v
+		}
+	}
+	return res
+}
+
 // PanePID returns the shell pid of the window's active pane.
 func PanePID(name string) (int, bool) {
 	out, err := run("display-message", "-p", "-t", target(name), "#{pane_pid}")

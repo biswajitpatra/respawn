@@ -23,6 +23,10 @@ type Job struct {
 	// {lr} — a long-running system can take many parameters.
 	Args      map[string]string `json:"args"`
 	SessionID string            `json:"session_id"`
+	// LastActive is the epoch (seconds) of the job's most recent tmux window
+	// activity, persisted so it survives the job going down. Drives `ls`
+	// sorting — stale jobs sink to the bottom.
+	LastActive int64 `json:"last_active,omitempty"`
 }
 
 func dir() string {

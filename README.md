@@ -98,12 +98,16 @@ After a reboot your windows are recreated and each job is relaunched with its
 **resume** command (Claude with `--resume <id>`, a trainer from its checkpoint,
 a dev server fresh).
 
+`ls` sorts by last activity (the job's tmux `window_activity`), so the jobs you
+just touched stay on top and stale ones sink to the bottom. `LAST` is a relative
+age; `STATUS` is `running` / `idle` / `down`.
+
 ```
 $ respawn ls
-NAME      TOOL    STATUS   SESSION       DIR
-frontend  claude  running  a1b2c3d4e5f6  /Users/me/work/app
-trainer   python  idle     ckpt-00420    /Users/me/ml/run
-bot       node    down     -             /Users/me/bots/discord
+NAME      TOOL    STATUS   LAST  SESSION       DIR
+frontend  claude  running  12s   a1b2c3d4e5f6  /Users/me/work/app
+trainer   python  idle     8m    ckpt-00420    /Users/me/ml/run
+bot       node    down     3d    -             /Users/me/bots/discord
 ```
 
 ### args vs flags
