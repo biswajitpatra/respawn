@@ -15,7 +15,16 @@ adheres to [Semantic Versioning](https://semver.org/).
   the session id first so a later `restart`/`restore` resumes it).
 - `add` now defaults `--dir` to the current git repo root (falling back to the
   cwd) when not given.
-- Session-id capture strategies: `newest_file`, `arg`, `none`.
+- `ls` sorts by last activity (a `LAST` column from tmux `window_activity`),
+  so stale jobs sink to the bottom.
+- Session-id capture strategies: `assign` (generate + pin at launch, e.g.
+  `--session-id` — supports many same-tool jobs in one dir), `newest_file`,
+  `arg`, `none`.
+- Optional `install-tmux` / `uninstall-tmux`: a reversible, marker-delimited
+  tmux tweak making `prefix+w` sort by last activity, scoped to respawn's
+  session only.
+- `env` supports both list form (capture from environment) and table form
+  (set to a rendered template, e.g. `{ FOO = "{name}" }`).
 - Built-in tool entries for `claude`, `codex`, `gemini`, `opencode`.
 - Named template values via `-a key=val` and a verbatim flag tail after `--`.
 - macOS reboot persistence via launchd (`install-boot` / `uninstall-boot`).
