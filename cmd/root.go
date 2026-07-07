@@ -22,7 +22,6 @@ import (
 	"github.com/biswajitpatra/respawn/internal/proc"
 	"github.com/biswajitpatra/respawn/internal/state"
 	"github.com/biswajitpatra/respawn/internal/tmux"
-	"github.com/biswajitpatra/respawn/internal/tmuxconf"
 )
 
 var rootCmd = &cobra.Command{
@@ -74,7 +73,7 @@ func resolveVersion(v string) string {
 }
 
 func init() {
-	rootCmd.AddCommand(addCmd, lsCmd, snapshotCmd, restoreCmd, restartCmd, stopCmd, rmCmd, attachCmd, toolsCmd, installBootCmd, uninstallBootCmd, installTmuxCmd, uninstallTmuxCmd)
+	rootCmd.AddCommand(addCmd, lsCmd, snapshotCmd, restoreCmd, restartCmd, stopCmd, rmCmd, attachCmd, toolsCmd, installBootCmd, uninstallBootCmd)
 }
 
 // --- shared rendering ---------------------------------------------------------
@@ -589,41 +588,6 @@ var toolsCmd = &cobra.Command{
 			}
 			fmt.Printf("  %s\n    start  : %s\n    resume : %s\n    capture: %s\n", n, spec.Start, resume, spec.Capture.Kind)
 		}
-		return nil
-	},
-}
-
-var installTmuxCmd = &cobra.Command{
-	Use:   "install-tmux",
-	Short: "Optional: make prefix+w sort by last activity, scoped to the respawn session",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		conf, snippet, err := tmuxconf.Install(tmux.Session())
-		if err != nil {
-			return err
-		}
-		fmt.Printf("wrote %s\n", snippet)
-		fmt.Printf("added a managed block to %s\n", conf)
-		// Reload live if a server is running (best-effort).
-		runQuiet("tmux", "source-file", conf)
-		fmt.Println("prefix+w now sorts by last activity in the respawn session (default elsewhere).")
-		fmt.Println("if not already attached, changes apply on your next tmux session.")
-		return nil
-	},
-}
-
-var uninstallTmuxCmd = &cobra.Command{
-	Use:   "uninstall-tmux",
-	Short: "Remove the optional tmux tweak installed by install-tmux",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		conf, removed, err := tmuxconf.Uninstall()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("removed the managed block from %s\n", conf)
-		if removed {
-			fmt.Printf("removed %s\n", tmuxconf.SnippetPath())
-		}
-		runQuiet("tmux", "source-file", conf)
 		return nil
 	},
 }

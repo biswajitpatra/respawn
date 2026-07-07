@@ -20,9 +20,6 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Session-id capture strategies: `assign` (generate + pin at launch, e.g.
   `--session-id` — supports many same-tool jobs in one dir), `newest_file`,
   `arg`, `none`.
-- Optional `install-tmux` / `uninstall-tmux`: a reversible, marker-delimited
-  tmux tweak making `prefix+w` sort by last activity, scoped to respawn's
-  session only.
 - `env` supports both list form (capture from environment) and table form
   (set to a rendered template, e.g. `{ FOO = "{name}" }`).
 - Built-in tool entries for `claude`, `codex`, `gemini`, `opencode`.
